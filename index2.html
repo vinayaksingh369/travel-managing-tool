@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Travel & Account Management Tool</title>
+<style>
+  /* Modern clean styles */
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+  body {
+    font-family: 'Roboto', sans-serif;
+    background: linear-gradient(to right, #4facfe, #00f2fe);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #333;
+  }
+  #root {
+    background: white;
+    max-width: 960px;
+    width: 90vw;
+    min-height: 700px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    padding: 20px 30px;
+    display: flex;
+    flex-direction: column;
+  }
+  h1 {
+    color: #0077cc;
+  }
+  .login-container, .dashboard {
+    flex-grow: 1;
+  }
+  form {
+    max-width: 320px;
+    margin: 3rem auto;
+    display: flex;
+    flex-direction: column;
+  }
+  input[type="email"], input[type="password"], input[type="text"], input[type="number"], select {
+    padding: 10px 15px;
+    margin: 10px 0;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  button {
+    background-color: #0077cc;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    margin-top: 15px;
+    cursor: pointer;
+    font-size: 1rem;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background-color: #005fa3;
+  }
+  .error-msg {
+    color: #cc0000;
+    margin: 10px 0;
+    font-weight: 700;
+  }
+  .logout-btn {
+    margin-left: auto;
+    background: #cc3300;
+  }
+  .section {
+    margin-bottom: 2rem;
+  }
+  .travel-info, .expenses-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 1rem;
+  }
+  .expenses-list table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .expenses-list th, .expenses-list td {
+    border-bottom: 1px solid #eee;
+    padding: 8px;
+    text-align: left;
+  }
+  .expenses-list th {
+    background-color: #f7f7f7;
+  }
+  .summary {
+    background: #0077cc;
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .filter-select {
+    max-width: 200px;
+  }
+  @media (max-width: 600px) {
+    #root {
+      width: 100vw;
+      border-radius: 0;
+      min-height: 100vh;
+      padding: 15px;
+    }
+    form {
+      width: 100%;
+      max-width: 100%;
+      margin: 1rem 0;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+<script type="text/babel">
+
+const { useState, useEffect } = React;
+
+const LOGIN_API = 'https://reqres.in/api/login'; // Free fake API for login testing
+
+// Helper to format currency
+function formatCurrency(num) {
+  return '$' + num.toFixed(2);
+}
+
+function App() {
+  // Auth related states
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authToken, setAuthToken] = useState(localStorage.getItem('authToken') || '');
+  const [error, setError] = useState('');
+
+  // Dashboard states
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityData, setCityData] = useState(null);
+  const [loadingCity, setLoadingCity] = useState(false);
+  const [expenses, setExpenses] = useState(JSON.parse(localStorage.getItem('expenses')) || []);
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState('Travel');
+  const [filterCategory, setFilterCategory] = useState('All');
+
+  // Handle login submit, call fake API
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!email || !password) {
+      setError('Please enter email and password.');
+      return;
+    }
+    try {
+      const res = await fetch(LOGIN_API, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password}),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAuthToken(data.token);
+        localStorage.setItem('authToken', data.token);
+        setEmail('');
+        setPassword('');
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('Network error. Try again later.');
+    }
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    setAuthToken('');
+    localStorage.removeItem('authToken');
+  };
+
+  // Fetch city travel info from Teleport API
+  const fetchCityData = async (city) => {
+    setLoadingCity(true);
+    setCityData(null);
+    try {
+      const res = await fetch(`https://api.teleport.org/api/urban_areas/slug:${city.toLowerCase().replace(/\s/g, '-')}/`);
+      if (!res.ok) {
+        setCityData({error: 'City not found or no data available.'});
+        setLoadingCity(false);
+        return;
+      }
+      const data = await res.json();
+      const scoresRes = await fetch(data._links['ua:scores'].href);
+      const scores = await scoresRes.json();
+      setCityData({
+        name: data.name,
+        fullName: data.full_name,
+        teleportCityUrl: data.teleport_city_url,
+        image: data.photos ? data.photos[0].image.web : null,
+        summary: scores.summary,
+        categories: scores.categories,
+      });
+    } catch (err) {
+      setCityData({error: 'Error fetching city data.'});
+    }
+    setLoadingCity(false);
+  };
+
+  // Add a new expense
+  const addExpense = () => {
+    if (!expenseDesc || !expenseAmount || isNaN(expenseAmount) || Number(expenseAmount) <= 0) {
+      alert('Please enter valid expense description and positive amount.');
+      return;
+    }
+    const newExpense = {
+      id: Date.now(),
+      desc: expenseDesc,
+      amount: parseFloat(expenseAmount),
+      category: expenseCategory,
+      date: new Date().toISOString(),
+    };
+    const updatedExpenses = [...expenses, newExpense];
+    setExpenses(updatedExpenses);
+    localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
+    setExpenseDesc('');
+    setExpenseAmount('');
+    setExpenseCategory('Travel');
+  };
+
+  // Filter expenses by category
+  const filteredExpenses = filterCategory === 'All' ? expenses : expenses.filter(e => e.category === filterCategory);
+
+  // Calculate total expenses
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+  if (!authToken) {
+    return (
+      <div className="login-container">
+        <h1>Login to Travel & Expense Manager</h1>
+        <form onSubmit={handleLogin} noValidate>
+          <input
+            type="email"
+            placeholder="Email (e.g. eve.holt@reqres.in)"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password (e.g. cityslicka)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          {error && <div className="error-msg">{error}</div>}
+          <button type="submit">Login</button>
+        </form>
+        <p style={{textAlign: 'center'}}>
+          For demo use:<br />Email: <code>eve.holt@reqres.in</code><br />Password: <code>cityslicka</code>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard">
+      <header style={{display: 'flex', alignItems: 'center', marginBottom: '1rem'}}>
+        <h1>Travel & Account Management</h1>
+        <button className="logout-btn" onClick={handleLogout}>Logout</button>
+      </header>
+
+      {/* Travel Info Section */}
+      <section className="section travel-section">
+        <h2>Explore Travel Cities</h2>
+        <form onSubmit={(e) => { e.preventDefault(); fetchCityData(cityQuery); }}>
+          <input
+            type="text"
+            placeholder="Enter city slug (e.g. san-francisco)"
+            value={cityQuery}
+            onChange={(e) => setCityQuery(e.target.value)}
+            required
+            style={{maxWidth: '300px'}}
+          />
+          <button type="submit">Search</button>
+        </form>
+        <div className="travel-info">
+          {loadingCity && <p>Loading city data...</p>}
+          {cityData && cityData.error && <p style={{color: 'red'}}>{cityData.error}</p>}
+          {cityData && !cityData.error && (
+            <div>
+              <h3>{cityData.fullName}</h3>
+              <div dangerouslySetInnerHTML={{__html: cityData.summary}} />
+              {cityData.image && <img src={cityData.image} alt={cityData.name} style={{maxWidth: '100%', borderRadius: '8px', marginTop: '1rem'}} />}
+              <p><a href={cityData.teleportCityUrl} target="_blank" rel="noopener noreferrer">More info on Teleport</a></p>
+              <h4>Scores:</h4>
+              <ul>
+                {cityData.categories.map(cat => (
+                  <li key={cat.name}>{cat.name}: {cat.score_out_of_10.toFixed(1)} / 10</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Expense Management Section */}
+      <section className="section expense-section">
+        <h2>Manage Your Expenses</h2>
+        <form onSubmit={(e) => { e.preventDefault(); addExpense(); }}>
+          <input
+            type="text"
+            placeholder="Expense description"
+            value={expenseDesc}
+            onChange={(e) => setExpenseDesc(e.target.value)}
+            required
+          />
+          <input
+            type="number"
+            placeholder="Amount"
+            value={expenseAmount}
+            onChange={(e) => setExpenseAmount(e.target.value)}
+            min="0.01" step="0.01"
+            required
+          />
+          <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="filter-select">
+            <option value="Travel">Travel</option>
+            <option value="Food">Food</option>
+            <option value="Accommodation">Accommodation</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Misc">Misc</option>
+          </select>
+          <button type="submit">Add Expense</button>
+        </form>
+
+        <div style={{marginTop: '1rem'}}>
+          <label htmlFor="filterCategory">Filter category: </label>
+          <select id="filterCategory" value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="filter-select">
+            <option value="All">All</option>
+            <option value="Travel">Travel</option>
+            <option value="Food">Food</option>
+            <option value="Accommodation">Accommodation</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Misc">Misc</option>
+          </select>
+        </div>
+
+        <div className="expenses-list">
+          {filteredExpenses.length === 0 ? (
+            <p>No expenses in this category.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Category</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredExpenses.map(exp => (
+                  <tr key={exp.id}>
+                    <td>{exp.desc}</td>
+                    <td>{formatCurrency(exp.amount)}</td>
+                    <td>{exp.category}</td>
+                    <td>{new Date(exp.date).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="summary">
+          Total Expenses: {formatCurrency(totalExpenses)}
+        </div>
+      </section>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+</script>
+</body>
+</html>
+

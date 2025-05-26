@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Enhanced Travel & Account Management Tool</title>
+<style>
+  /* Modern clean styles */
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+  body {
+    font-family: 'Roboto', sans-serif;
+    background: linear-gradient(to right, #4facfe, #00f2fe);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 20px;
+    color: #333;
+  }
+  #root {
+    background: white;
+    max-width: 1024px;
+    width: 95vw;
+    min-height: 800px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    padding: 25px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+  h1, h2, h3 {
+    color: #0077cc;
+    margin-bottom: 12px;
+  }
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+  }
+  input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="date"], select, textarea {
+    padding: 10px 15px;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    flex: 1 1 200px;
+  }
+  textarea {
+    resize: vertical;
+    min-height: 60px;
+    max-height: 120px;
+  }
+  button {
+    background-color: #0077cc;
+    color: white;
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    font-size: 1rem;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+    flex: 0 0 auto;
+  }
+  button:hover {
+    background-color: #005fa3;
+  }
+  .button-secondary {
+    background-color: #ccc;
+    color: #333;
+  }
+  .button-secondary:hover {
+    background-color: #aaa;
+  }
+  .dashboard {
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+  .expenses-list, .travel-plans-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+  .expenses-list table, .travel-plans-list table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .expenses-list th, .expenses-list td,
+  .travel-plans-list th, .travel-plans-list td {
+    border-bottom: 1px solid #eee;
+    padding: 10px 12px;
+    text-align: left;
+  }
+  .expenses-list th, .travel-plans-list th {
+    background-color: #f7f7f7;
+  }
+  .summary {
+    background: #0077cc;
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 15px;
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    user-select: none;
+  }
+  .filter-select {
+    max-width: 180px;
+  }
+  .actions-btns button {
+    margin-right: 6px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+  .separator {
+    margin: 25px 0 20px 0;
+    border-top: 2px solid #0077cc;
+    width: 40px;
+    border-radius: 2px;
+  }
+  @media (max-width: 768px) {
+    #root {
+      width: 95vw;
+      min-height: 90vh;
+      padding: 20px;
+    }
+    form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    input, select, textarea, button {
+      flex: 1 1 auto;
+      width: 100% !important;
+      margin-bottom: 8px;
+    }
+    .actions-btns button {
+      margin-right: 8px;
+      margin-bottom: 6px;
+      width: 100%;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+<script type="text/babel">
+
+const { useState, useEffect } = React;
+
+// Helpers
+function formatCurrency(num) {
+  return '$' + num.toFixed(2);
+}
+
+function formatDateISO(dateISO) {
+  try {
+    return new Date(dateISO).toLocaleDateString();
+  } catch {
+    return dateISO;
+  }
+}
+
+function App() {
+  // Expense states
+  const [expenses, setExpenses] = useState(JSON.parse(localStorage.getItem('expenses')) || []);
+  const [expenseDesc, setExpenseDesc] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState('Travel');
+  const [filterCategory, setFilterCategory] = useState('All');
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
+
+  // Travel info states
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityData, setCityData] = useState(null);
+  const [loadingCity, setLoadingCity] = useState(false);
+
+  // Travel plans states
+  const [travelPlans, setTravelPlans] = useState(JSON.parse(localStorage.getItem('travelPlans')) || []);
+  const [planDestination, setPlanDestination] = useState('');
+  const [planStartDate, setPlanStartDate] = useState('');
+  const [planEndDate, setPlanEndDate] = useState('');
+  const [planNotes, setPlanNotes] = useState('');
+  const [editingPlanId, setEditingPlanId] = useState(null);
+
+  // Expense Handlers
+  const resetExpenseForm = () => {
+    setExpenseDesc('');
+    setExpenseAmount('');
+    setExpenseCategory('Travel');
+    setEditingExpenseId(null);
+  };
+
+  const addOrUpdateExpense = () => {
+    if (!expenseDesc.trim() || !expenseAmount || isNaN(expenseAmount) || Number(expenseAmount) <= 0) {
+      alert('Please enter valid expense description and positive amount.');
+      return;
+    }
+    const amountFloat = parseFloat(expenseAmount);
+    if (editingExpenseId) {
+      const updated = expenses.map(exp => exp.id === editingExpenseId ? {
+        ...exp,
+        desc: expenseDesc,
+        amount: amountFloat,
+        category: expenseCategory,
+      } : exp);
+      setExpenses(updated);
+      localStorage.setItem('expenses', JSON.stringify(updated));
+      resetExpenseForm();
+    } else {
+      const newExpense = {
+        id: Date.now(),
+        desc: expenseDesc,
+        amount: amountFloat,
+        category: expenseCategory,
+        date: new Date().toISOString(),
+      };
+      const updated = [...expenses, newExpense];
+      setExpenses(updated);
+      localStorage.setItem('expenses', JSON.stringify(updated));
+      resetExpenseForm();
+    }
+  };
+
+  const startEditExpense = (exp) => {
+    setEditingExpenseId(exp.id);
+    setExpenseDesc(exp.desc);
+    setExpenseAmount(exp.amount.toString());
+    setExpenseCategory(exp.category);
+  };
+
+  const deleteExpense = (id) => {
+    if (!window.confirm('Are you sure you want to delete this expense?')) return;
+    const updated = expenses.filter(exp => exp.id !== id);
+    setExpenses(updated);
+    localStorage.setItem('expenses', JSON.stringify(updated));
+    // Clear editing if deleting edited expense
+    if (editingExpenseId === id) {
+      resetExpenseForm();
+    }
+  };
+
+  // Travel Info Handlers
+  const fetchCityData = async (city) => {
+    setLoadingCity(true);
+    setCityData(null);
+    try {
+      const res = await fetch(`https://api.teleport.org/api/urban_areas/slug:${city.toLowerCase().replace(/\s/g, '-')}/`);
+      if (!res.ok) {
+        setCityData({error: 'City not found or no data available.'});
+        setLoadingCity(false);
+        return;
+      }
+      const data = await res.json();
+      const scoresRes = await fetch(data._links['ua:scores'].href);
+      const scores = await scoresRes.json();
+      setCityData({
+        name: data.name,
+        fullName: data.full_name,
+        teleportCityUrl: data.teleport_city_url,
+        image: data.photos ? data.photos[0].image.web : null,
+        summary: scores.summary,
+        categories: scores.categories,
+      });
+    } catch (err) {
+      setCityData({error: 'Error fetching city data.'});
+    }
+    setLoadingCity(false);
+  };
+
+  // Travel Plans Handlers
+  const resetPlanForm = () => {
+    setPlanDestination('');
+    setPlanStartDate('');
+    setPlanEndDate('');
+    setPlanNotes('');
+    setEditingPlanId(null);
+  };
+
+  const addOrUpdatePlan = () => {
+    if (!planDestination.trim()) {
+      alert('Please enter a destination.');
+      return;
+    }
+    if (!planStartDate) {
+      alert('Please select a start date.');
+      return;
+    }
+    if (planEndDate && planEndDate < planStartDate) {
+      alert('End date cannot be before start date.');
+      return;
+    }
+    if (editingPlanId) {
+      const updated = travelPlans.map(plan => plan.id === editingPlanId ? {
+        ...plan,
+        destination: planDestination,
+        startDate: planStartDate,
+        endDate: planEndDate,
+        notes: planNotes,
+      } : plan);
+      setTravelPlans(updated);
+      localStorage.setItem('travelPlans', JSON.stringify(updated));
+      resetPlanForm();
+    } else {
+      const newPlan = {
+        id: Date.now(),
+        destination: planDestination,
+        startDate: planStartDate,
+        endDate: planEndDate,
+        notes: planNotes,
+      };
+      const updated = [...travelPlans, newPlan];
+      setTravelPlans(updated);
+      localStorage.setItem('travelPlans', JSON.stringify(updated));
+      resetPlanForm();
+    }
+  };
+
+  const startEditPlan = (plan) => {
+    setEditingPlanId(plan.id);
+    setPlanDestination(plan.destination);
+    setPlanStartDate(plan.startDate);
+    setPlanEndDate(plan.endDate || '');
+    setPlanNotes(plan.notes || '');
+  };
+
+  const deletePlan = (id) => {
+    if (!window.confirm('Are you sure you want to delete this travel plan?')) return;
+    const updated = travelPlans.filter(plan => plan.id !== id);
+    setTravelPlans(updated);
+    localStorage.setItem('travelPlans', JSON.stringify(updated));
+    if (editingPlanId === id) resetPlanForm();
+  };
+
+  // Filter expenses by category
+  const filteredExpenses = filterCategory === 'All' ? expenses : expenses.filter(e => e.category === filterCategory);
+
+  // Calculate total expenses
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+  return (
+    <div className="dashboard">
+
+      <header style={{display: 'flex', alignItems: 'center', marginBottom: '2rem'}}>
+        <h1>Enhanced Travel & Account Management</h1>
+      </header>
+
+      {/* Travel Info Section */}
+      <section className="section travel-section" aria-label="Travel City Exploration">
+        <h2>Explore Travel Cities</h2>
+        <form onSubmit={(e) => { e.preventDefault(); fetchCityData(cityQuery); }} aria-label="Search city form">
+          <input
+            type="text"
+            placeholder="Enter city slug (e.g. san-francisco)"
+            value={cityQuery}
+            onChange={(e) => setCityQuery(e.target.value)}
+            required
+            aria-required="true"
+            style={{maxWidth: '300px'}}
+            aria-label="City slug input"
+          />
+          <button type="submit" aria-label="Search city button">Search</button>
+        </form>
+        <div className="travel-info" aria-live="polite">
+          {loadingCity && <p>Loading city data...</p>}
+          {cityData && cityData.error && <p role="alert" style={{color: 'red'}}>{cityData.error}</p>}
+          {cityData && !cityData.error && (
+            <div>
+              <h3>{cityData.fullName}</h3>
+              <div dangerouslySetInnerHTML={{__html: cityData.summary}} />
+              {cityData.image && <img src={cityData.image} alt={cityData.name} style={{maxWidth: '100%', borderRadius: '8px', marginTop: '1rem'}} />}
+              <p><a href={cityData.teleportCityUrl} target="_blank" rel="noopener noreferrer">More info on Teleport</a></p>
+              <h4>Scores:</h4>
+              <ul>
+                {cityData.categories.map(cat => (
+                  <li key={cat.name}>{cat.name}: {cat.score_out_of_10.toFixed(1)} / 10</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <hr className="separator" />
+
+      {/* Expense Management Section */}
+      <section className="section expense-section" aria-label="Expense management">
+        <h2>Manage Your Expenses</h2>
+        <form onSubmit={e => { e.preventDefault(); addOrUpdateExpense(); }} aria-label="Add or update expense form">
+          <input
+            type="text"
+            placeholder="Expense description"
+            value={expenseDesc}
+            onChange={(e) => setExpenseDesc(e.target.value)}
+            required
+            aria-required="true"
+            aria-label="Expense description"
+          />
+          <input
+            type="number"
+            placeholder="Amount"
+            value={expenseAmount}
+            onChange={(e) => setExpenseAmount(e.target.value)}
+            min="0.01"
+            step="0.01"
+            required
+            aria-required="true"
+            aria-label="Expense amount"
+          />
+          <select
+            value={expenseCategory}
+            onChange={e => setExpenseCategory(e.target.value)}
+            className="filter-select"
+            aria-label="Expense category"
+          >
+            <option value="Travel">Travel</option>
+            <option value="Food">Food</option>
+            <option value="Accommodation">Accommodation</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Misc">Misc</option>
+          </select>
+          <button type="submit">{editingExpenseId ? 'Update Expense' : 'Add Expense'}</button>
+          {editingExpenseId && (
+            <button
+              type="button"
+              onClick={resetExpenseForm}
+              className="button-secondary"
+              aria-label="Cancel editing expense"
+            >
+              Cancel
+            </button>
+          )}
+        </form>
+
+        <div style={{marginTop: '12px'}}>
+          <label htmlFor="filterCategory">Filter category: </label>
+          <select
+            id="filterCategory"
+            value={filterCategory}
+            onChange={e => setFilterCategory(e.target.value)}
+            className="filter-select"
+            aria-label="Filter expenses by category"
+          >
+            <option value="All">All</option>
+            <option value="Travel">Travel</option>
+            <option value="Food">Food</option>
+            <option value="Accommodation">Accommodation</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Misc">Misc</option>
+          </select>
+        </div>
+
+        <div className="expenses-list" aria-live="polite" aria-label="List of expenses">
+          {filteredExpenses.length === 0 ? (
+            <p>No expenses in this category.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Category</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredExpenses.map(exp => (
+                  <tr key={exp.id}>
+                    <td>{exp.desc}</td>
+                    <td>{formatCurrency(exp.amount)}</td>
+                    <td>{exp.category}</td>
+                    <td>{formatDateISO(exp.date)}</td>
+                    <td className="actions-btns">
+                      <button onClick={() => startEditExpense(exp)} aria-label={`Edit expense: ${exp.desc}`}>Edit</button>
+                      <button onClick={() => deleteExpense(exp.id)} aria-label={`Delete expense: ${exp.desc}`}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="summary" aria-live="polite">
+          Total Expenses: {formatCurrency(totalExpenses)}
+        </div>
+      </section>
+
+      <hr className="separator" />
+
+      {/* Travel Plans Section */}
+      <section className="section travel-plans-section" aria-label="Travel plans management">
+        <h2>Plan Your Travels</h2>
+        <form onSubmit={e => { e.preventDefault(); addOrUpdatePlan(); }} aria-label="Add or update travel plan form">
+          <input
+            type="text"
+            placeholder="Destination"
+            value={planDestination}
+            onChange={(e) => setPlanDestination(e.target.value)}
+            required
+            aria-required="true"
+            aria-label="Travel destination"
+          />
+          <input
+            type="date"
+            value={planStartDate}
+            onChange={(e) => setPlanStartDate(e.target.value)}
+            required
+            aria-required="true"
+            aria-label="Start date"
+          />
+          <input
+            type="date"
+            value={planEndDate}
+            onChange={(e) => setPlanEndDate(e.target.value)}
+            aria-label="End date"
+            min={planStartDate || undefined}
+          />
+          <textarea
+            placeholder="Notes (optional)"
+            value={planNotes}
+            onChange={(e) => setPlanNotes(e.target.value)}
+            aria-label="Travel notes"
+          />
+          <button type="submit">{editingPlanId ? 'Update Plan' : 'Add Plan'}</button>
+          {editingPlanId && (
+            <button
+              type="button"
+              onClick={resetPlanForm}
+              className="button-secondary"
+              aria-label="Cancel editing travel plan"
+            >
+              Cancel
+            </button>
+          )}
+        </form>
+
+        <div className="travel-plans-list" aria-live="polite" aria-label="List of travel plans" style={{marginTop: '12px'}}>
+          {travelPlans.length === 0 ? (
+            <p>No travel plans added yet.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Destination</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {travelPlans.map(plan => (
+                  <tr key={plan.id}>
+                    <td>{plan.destination}</td>
+                    <td>{formatDateISO(plan.startDate)}</td>
+                    <td>{plan.endDate ? formatDateISO(plan.endDate) : '-'}</td>
+                    <td style={{maxWidth: '240px', whiteSpace: 'pre-wrap'}}>{plan.notes ? plan.notes : '-'}</td>
+                    <td className="actions-btns">
+                      <button onClick={() => startEditPlan(plan)} aria-label={`Edit travel plan: ${plan.destination}`}>Edit</button>
+                      <button onClick={() => deletePlan(plan.id)} aria-label={`Delete travel plan: ${plan.destination}`}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+</script>
+</body>
+</html>
+

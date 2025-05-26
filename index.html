@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Travel & Expense Management Tool with India Cities</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+  body {
+    margin: 0; padding: 0;
+    font-family: 'Roboto', sans-serif;
+    background: linear-gradient(to right, #4facfe, #00f2fe);
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+  #app {
+    background: white;
+    max-width: 1000px;
+    width: 100%;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    padding: 30px 40px;
+  }
+  h1, h2, h3 {
+    color: #0077cc;
+  }
+  section {
+    margin-bottom: 40px;
+  }
+  form > * {
+    display: block;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  input[type="text"], input[type="number"], input[type="date"], select, textarea {
+    padding: 10px 15px;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+  }
+  textarea {
+    resize: vertical;
+    min-height: 60px;
+    max-height: 120px;
+  }
+  button {
+    background-color: #0077cc;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+    margin-right: 8px;
+    margin-bottom: 8px;
+  }
+  button:hover {
+    background-color: #005fa3;
+  }
+  .button-secondary {
+    background-color: #ccc;
+    color: #333;
+  }
+  .button-secondary:hover {
+    background-color: #aaa;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    user-select: none;
+  }
+  th {
+    background: #f7f7f7;
+    cursor: pointer;
+  }
+  .actions button {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+  .actions button:last-child {
+    margin-right: 0;
+  }
+  .summary {
+    background: #0077cc;
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    user-select: none;
+    text-align: center;
+  }
+  .error {
+    color: #cc0000;
+    margin-bottom: 12px;
+  }
+  .city-summary {
+    margin-top: 12px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: #f0f8ff;
+  }
+  img.city-image {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-top: 12px;
+  }
+  .flex-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .flex-row > * {
+    margin-right: 16px;
+    margin-bottom: 8px;
+  }
+  @media (max-width: 700px){
+    #app {
+      padding: 20px 15px;
+    }
+    .actions button {
+      padding: 6px 8px;
+      font-size: 0.85rem;
+    }
+    .flex-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .flex-row > * {
+      margin-right: 0;
+    }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Travel & Expense Management</h1>
+
+  <section id="travel-section">
+    <h2>Explore Travel Cities</h2>
+    <form id="city-form" class="flex-row" style="max-width: 500px;">
+      <select id="india-city-select" required aria-label="Select a city in India">
+        <option value="" disabled selected>Select a city in India</option>
+      </select>
+      <button type="submit">Show City Info</button>
+    </form>
+    <div id="city-error" class="error"></div>
+    <div id="city-result"></div>
+  </section>
+
+  <section id="budget-section" style="margin-bottom:40px;">
+    <h2>Set Your Monthly Budget</h2>
+    <form id="budget-form" class="flex-row" style="max-width: 400px; align-items:center;">
+      <input type="number" id="budget-input" min="0" step="0.01" placeholder="Budget Amount (USD)" />
+      <button type="submit">Save Budget</button>
+    </form>
+    <div id="budget-display" style="margin-top:10px;font-weight:bold;color:#333;"></div>
+  </section>
+
+  <section id="expense-section">
+    <h2>Manage Your Expenses</h2>
+    <form id="expense-form" style="max-width: 500px;">
+      <input type="text" id="expense-desc" placeholder="Expense description" required />
+      <input type="number" id="expense-amount" min="0.01" step="0.01" placeholder="Amount (USD)" required />
+      <select id="expense-category" required>
+        <option value="Travel">Travel</option>
+        <option value="Food">Food</option>
+        <option value="Accommodation">Accommodation</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Misc">Misc</option>
+      </select>
+      <button type="submit" id="expense-submit-btn">Add Expense</button>
+      <button type="button" id="expense-cancel-btn" style="display:none;" class="button-secondary">Cancel</button>
+    </form>
+    <div class="flex-row" style="align-items:center; justify-content:flex-start; max-width: 500px;">
+      <label for="filter-category">Filter category:</label>
+      <select id="filter-category" style="max-width: 200px;">
+        <option value="All" selected>All</option>
+        <option value="Travel">Travel</option>
+        <option value="Food">Food</option>
+        <option value="Accommodation">Accommodation</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Misc">Misc</option>
+      </select>
+      <button id="export-expenses-btn" title="Export expenses to CSV">Export Expenses CSV</button>
+      <button id="clear-expenses-btn" class="button-secondary" title="Clear all expenses">Clear Expenses</button>
+    </div>
+    <table id="expense-table" aria-label="Expense list" style="margin-top:12px;">
+      <thead>
+        <tr>
+          <th data-sort="desc">Description &#x25B2;</th>
+          <th data-sort="amount">Amount</th>
+          <th data-sort="category">Category</th>
+          <th data-sort="date">Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="summary" id="expense-summary"></div>
+    <div id="budget-warning" style="color: #a00; font-weight: bold; margin-top:10px; display:none;">Warning: You have exceeded your set budget!</div>
+  </section>
+
+  <section id="plan-section">
+    <h2>Plan Your Travels</h2>
+    <form id="plan-form" style="max-width: 600px;">
+      <select id="plan-destination" aria-label="Select travel plan destination" required>
+        <option value="" disabled selected>Select city in India</option>
+      </select>
+      <input type="date" id="plan-start-date" required />
+      <input type="date" id="plan-end-date" />
+      <textarea id="plan-notes" placeholder="Notes (optional)"></textarea>
+      <button type="submit" id="plan-submit-btn">Add Plan</button>
+      <button type="button" id="plan-cancel-btn" style="display:none;" class="button-secondary">Cancel</button>
+    </form>
+    <button id="export-plans-btn" style="margin-top:8px;">Export Plans CSV</button>
+    <button id="clear-plans-btn" class="button-secondary" style="margin-left:10px;">Clear Plans</button>
+    <table id="plan-table" aria-label="Travel plans list" style="margin-top: 12px;">
+      <thead>
+        <tr>
+          <th>Destination</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Notes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</div>
+
+<script>
+// Main IIFE
+(function(){
+  // List of popular Indian Cities (can be extended)
+  const indiaCities = [
+    "Mumbai","Delhi","Bangalore","Hyderabad","Ahmedabad","Chennai","Kolkata","Surat","Pune","Jaipur",
+    "Lucknow","Kanpur","Nagpur","Visakhapatnam","Bhopal","Patna","Vadodara","Ghaziabad","Ludhiana", "Agra",
+    "Nashik","Faridabad","Meerut","Rajkot","Kalyan","Vasai","Varanasi","Srinagar","Aurangabad","Dhanbad",
+    "Amritsar","Navi Mumbai","Allahabad","Ranchi","Howrah","Coimbatore","Jabalpur","Gwalior","Vijayawada",
+    "Jodhpur","Madurai","Raipur","Kota","Guwahati","Chandigarh","Solapur","Hubli","Bareilly","Mysore","Tiruchirappalli",
+    "Moradabad","Jalandhar"
+  ];
+
+  // Save cities to selects
+  const citySelect = document.getElementById('india-city-select');
+  const planDestinationSelect = document.getElementById('plan-destination');
+  indiaCities.forEach(city => {
+    const option1 = document.createElement('option');
+    option1.value = city.toLowerCase().replace(/\s+/g, '-');
+    option1.textContent = city;
+    citySelect.appendChild(option1);
+
+    const option2 = document.createElement('option');
+    option2.value = city;
+    option2.textContent = city;
+    planDestinationSelect.appendChild(option2);
+  });
+
+  // Helpers
+  function formatCurrency(num) {
+    return '$' + num.toFixed(2);
+  }
+  function formatDateISO(dateStr) {
+    if (!dateStr) return '-';
+    let d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString();
+  }
+  function arrayToCSV(arr, headers){
+    const csv = [headers.join(",")];
+    arr.forEach(obj => {
+      csv.push(headers.map(h => {
+        let val = obj[h];
+        if (val === undefined || val === null) return "";
+        val = val.toString().replace(/"/g, '""'); // escape quotes
+        if (val.includes(",") || val.includes("\n")) val = `"${val}"`;
+        return val;
+      }).join(","));
+    });
+    return csv.join("\n");
+  }
+  function downloadCSV(data, filename){
+    const blob = new Blob([data], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // State variables
+  let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+  let expenseEditingId = null;
+  let travelPlans = JSON.parse(localStorage.getItem('travelPlans') || '[]');
+  let planEditingId = null;
+  let budget = parseFloat(localStorage.getItem('budget') || '0');
+
+  // DOM elements
+  const cityForm = document.getElementById('city-form');
+  const cityInput = document.getElementById('india-city-select');
+  const cityError = document.getElementById('city-error');
+  const cityResult = document.getElementById('city-result');
+
+  const budgetForm = document.getElementById('budget-form');
+  const budgetInput = document.getElementById('budget-input');
+  const budgetDisplay = document.getElementById('budget-display');
+  const budgetWarning = document.getElementById('budget-warning');
+
+  const expenseForm = document.getElementById('expense-form');
+  const expenseDescInput = document.getElementById('expense-desc');
+  const expenseAmountInput = document.getElementById('expense-amount');
+  const expenseCategorySelect = document.getElementById('expense-category');
+  const expenseTableBody = document.querySelector('#expense-table tbody');
+  const expenseSummary = document.getElementById('expense-summary');
+  const filterCategorySelect = document.getElementById('filter-category');
+  const expenseSubmitBtn = document.getElementById('expense-submit-btn');
+  const expenseCancelBtn = document.getElementById('expense-cancel-btn');
+  const exportExpensesBtn = document.getElementById('export-expenses-btn');
+  const clearExpensesBtn = document.getElementById('clear-expenses-btn');
+
+  const planForm = document.getElementById('plan-form');
+  const planDestinationInput = document.getElementById('plan-destination');
+  const planStartDateInput = document.getElementById('plan-start-date');
+  const planEndDateInput = document.getElementById('plan-end-date');
+  const planNotesInput = document.getElementById('plan-notes');
+  const planTableBody = document.querySelector('#plan-table tbody');
+  const planSubmitBtn = document.getElementById('plan-submit-btn');
+  const planCancelBtn = document.getElementById('plan-cancel-btn');
+  const exportPlansBtn = document.getElementById('export-plans-btn');
+  const clearPlansBtn = document.getElementById('clear-plans-btn');
+
+  // Init budget display
+  function updateBudgetDisplay(){
+    if(budget && budget > 0){
+      budgetDisplay.textContent = `Your monthly budget is set to: ${formatCurrency(budget)}`;
+    } else {
+      budgetDisplay.textContent = 'No budget set.';
+    }
+  }
+  updateBudgetDisplay();
+
+  // Budget form
+  budgetInput.value = budget > 0 ? budget : '';
+  budgetForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    let val = parseFloat(budgetInput.value);
+    if (isNaN(val) || val < 0) {
+      alert('Please enter a valid budget amount.');
+      return;
+    }
+    budget = val;
+    localStorage.setItem('budget', budget);
+    updateBudgetDisplay();
+    checkBudgetWarning();
+  });
+
+  // Fetch city info and display
+  cityForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    const slug = cityInput.value;
+    if (!slug) return;
+    cityError.textContent = '';
+    cityResult.innerHTML = 'Loading city data...';
+    fetch(`https://api.teleport.org/api/urban_areas/slug:${slug}/`)
+      .then(response => {
+        if (!response.ok) throw new Error('City not found or no data available');
+        return response.json();
+      })
+      .then(data => {
+        return fetch(data._links['ua:scores'].href).then(res => {
+          if (!res.ok) throw new Error('Could not fetch city scores');
+          return res.json();
+        }).then(scores => ({data, scores}));
+      })
+      .then(({data,scores}) => {
+        let html = '<h3>' + data.full_name + '</h3>';
+        html += '<div>' + scores.summary + '</div>';
+        if(data.photos && data.photos[0] && data.photos[0].image && data.photos[0].image.web){
+          html += `<img src="${data.photos[0].image.web}" alt="${data.name}" class="city-image"/>`;
+        }
+        html += `<p><a href="${data.teleport_city_url}" target="_blank" rel="noopener noreferrer">More info on Teleport</a></p>`;
+        html += '<h4>Scores:</h4><ul>';
+        scores.categories.forEach(cat => {
+          html += `<li>${cat.name}: ${cat.score_out_of_10.toFixed(1)} / 10</li>`;
+        });
+        html += '</ul>';
+        cityResult.innerHTML = html;
+      })
+      .catch(err => {
+        cityError.textContent = err.message || 'Error fetching city data';
+        cityResult.innerHTML = '';
+      });
+  });
+
+  // Expense functions
+  function saveExpenses() {
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+  }
+  function renderExpenses(sortField = 'desc', ascending = true){
+    let filter = filterCategorySelect.value;
+    let filtered = (filter === 'All') ? expenses.slice() : expenses.filter(e => e.category === filter);
+
+    filtered.sort((a,b) => {
+      let va = a[sortField], vb = b[sortField];
+      if(sortField === 'amount'){
+        va = parseFloat(va); vb = parseFloat(vb);
+      } else if(sortField === 'date') {
+        va = new Date(va); vb = new Date(vb);
+      } else {
+        va = va.toString().toLowerCase();
+        vb = vb.toString().toLowerCase();
+      }
+      if(va < vb) return ascending ? -1 : 1;
+      if(va > vb) return ascending ? 1 : -1;
+      return 0;
+    });
+
+    expenseTableBody.innerHTML = '';
+    if (filtered.length === 0) {
+      expenseTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No expenses.</td></tr>';
+      expenseSummary.textContent = 'Total Expenses: $0.00';
+      budgetWarning.style.display = 'none';
+      return;
+    }
+    filtered.forEach(exp => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${exp.desc}</td>
+        <td>${formatCurrency(exp.amount)}</td>
+        <td>${exp.category}</td>
+        <td>${formatDateISO(exp.date)}</td>
+        <td class="actions">
+          <button data-id="${exp.id}" data-action="edit">Edit</button>
+          <button data-id="${exp.id}" data-action="delete">Delete</button>
+        </td>
+      `;
+      expenseTableBody.appendChild(tr);
+    });
+    const total = filtered.reduce((sum,e) => sum + e.amount, 0);
+    expenseSummary.textContent = 'Total Expenses: ' + formatCurrency(total);
+    checkBudgetWarning(total);
+  }
+  function resetExpenseForm() {
+    expenseDescInput.value = '';
+    expenseAmountInput.value = '';
+    expenseCategorySelect.value = 'Travel';
+    expenseEditingId = null;
+    expenseSubmitBtn.textContent = 'Add Expense';
+    expenseCancelBtn.style.display = 'none';
+  }
+  expenseForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const desc = expenseDescInput.value.trim();
+    const amount = parseFloat(expenseAmountInput.value);
+    const category = expenseCategorySelect.value;
+    if (!desc || isNaN(amount) || amount <= 0) {
+      alert('Please enter valid expense description and positive amount.');
+      return;
+    }
+    if (expenseEditingId !== null) {
+      expenses = expenses.map(e => e.id === expenseEditingId ? {...e, desc, amount, category} : e);
+      expenseEditingId = null;
+    } else {
+      expenses.push({id: Date.now(), desc, amount, category, date: new Date().toISOString()});
+    }
+    saveExpenses();
+    renderExpenses();
+    resetExpenseForm();
+  });
+  expenseCancelBtn.addEventListener('click', () => {
+    resetExpenseForm();
+  });
+  expenseTableBody.addEventListener('click', (e) => {
+    if (!e.target.matches('button')) return;
+    const id = Number(e.target.dataset.id);
+    const action = e.target.dataset.action;
+    if (action === 'edit') {
+      const exp = expenses.find(x => x.id === id);
+      if (!exp) return;
+      expenseEditingId = id;
+      expenseDescInput.value = exp.desc;
+      expenseAmountInput.value = exp.amount;
+      expenseCategorySelect.value = exp.category;
+      expenseSubmitBtn.textContent = 'Update Expense';
+      expenseCancelBtn.style.display = 'inline-block';
+    } else if (action === 'delete') {
+      if (confirm('Delete this expense?')) {
+        expenses = expenses.filter(e => e.id !== id);
+        saveExpenses();
+        renderExpenses();
+        if (expenseEditingId === id) resetExpenseForm();
+      }
+    }
+  });
+  filterCategorySelect.addEventListener('change', () => renderExpenses());
+
+  // Budget warning
+  function checkBudgetWarning(totalSpent) {
+    if (!budget || budget <= 0) {
+      budgetWarning.style.display = 'none';
+      return;
+    }
+    const total = totalSpent !== undefined ? totalSpent : expenses.reduce((s,e) => s + e.amount, 0);
+    if (total > budget) {
+      budgetWarning.style.display = 'block';
+    } else {
+      budgetWarning.style.display = 'none';
+    }
+  }
+
+  // Clear expenses
+  clearExpensesBtn.addEventListener('click', () => {
+    if (confirm('Clear all expenses?')) {
+      expenses = [];
+      saveExpenses();
+      renderExpenses();
+      resetExpenseForm();
+    }
+  });
+
+  // Export expenses CSV
+  exportExpensesBtn.addEventListener('click', () => {
+    if (expenses.length === 0) {
+      alert('No expenses to export.');
+      return;
+    }
+    const headers = ['desc', 'amount', 'category', 'date'];
+    const csv = arrayToCSV(expenses, headers);
+    downloadCSV(csv, 'expenses.csv');
+  });
+
+  // Travel Plan functions
+  function savePlans() {
+    localStorage.setItem('travelPlans', JSON.stringify(travelPlans));
+  }
+  function renderPlans() {
+    planTableBody.innerHTML = '';
+    if (travelPlans.length === 0) {
+      planTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No travel plans.</td></tr>';
+      return;
+    }
+    travelPlans.forEach(plan => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${plan.destination}</td>
+        <td>${formatDateISO(plan.startDate)}</td>
+        <td>${plan.endDate ? formatDateISO(plan.endDate) : '-'}</td>
+        <td style="white-space: pre-wrap; max-width: 300px;">${plan.notes || '-'}</td>
+        <td class="actions">
+          <button data-id="${plan.id}" data-action="edit">Edit</button>
+          <button data-id="${plan.id}" data-action="delete">Delete</button>
+        </td>
+      `;
+      planTableBody.appendChild(tr);
+    });
+  }
+  function resetPlanForm() {
+    planDestinationInput.value = '';
+    planStartDateInput.value = '';
+    planEndDateInput.value = '';
+    planNotesInput.value = '';
+    planEditingId = null;
+    planSubmitBtn.textContent = 'Add Plan';
+    planCancelBtn.style.display = 'none';
+  }
+  planForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const destination = planDestinationInput.value.trim();
+    const startDate = planStartDateInput.value;
+    const endDate = planEndDateInput.value;
+    const notes = planNotesInput.value.trim();
+    if (!destination){
+      alert('Please select a destination.');
+      return;
+    }
+    if (!startDate){
+      alert('Please select a start date.');
+      return;
+    }
+    if (endDate && endDate < startDate){
+      alert('End date cannot be before start date.');
+      return;
+    }
+    if (planEditingId !== null) {
+      travelPlans = travelPlans.map(p => p.id === planEditingId ? {id: planEditingId, destination, startDate, endDate, notes} : p);
+      planEditingId = null;
+    } else {
+      travelPlans.push({id: Date.now(), destination, startDate, endDate, notes});
+    }
+    savePlans();
+    renderPlans();
+    resetPlanForm();
+  });
+  planCancelBtn.addEventListener('click', resetPlanForm);
+  planTableBody.addEventListener('click', (e) => {
+    if (!e.target.matches('button')) return;
+    const id = Number(e.target.dataset.id);
+    const action = e.target.dataset.action;
+    if (action === 'edit') {
+      const plan = travelPlans.find(p => p.id === id);
+      if (!plan) return;
+      planEditingId = id;
+      planDestinationInput.value = plan.destination;
+      planStartDateInput.value = plan.startDate;
+      planEndDateInput.value = plan.endDate || '';
+      planNotesInput.value = plan.notes || '';
+      planSubmitBtn.textContent = 'Update Plan';
+      planCancelBtn.style.display = 'inline-block';
+    } else if (action === 'delete') {
+      if (confirm('Delete this travel plan?')) {
+        travelPlans = travelPlans.filter(p => p.id !== id);
+        savePlans();
+        renderPlans();
+        if (planEditingId === id) resetPlanForm();
+      }
+    }
+  });
+  // Export plans CSV
+  exportPlansBtn.addEventListener('click', () => {
+    if (travelPlans.length === 0) {
+      alert('No travel plans to export.');
+      return;
+    }
+    const headers = ['destination', 'startDate', 'endDate', 'notes'];
+    const csv = arrayToCSV(travelPlans, headers);
+    downloadCSV(csv, 'travel_plans.csv');
+  });
+  // Clear plans
+  clearPlansBtn.addEventListener('click', () => {
+    if (confirm('Clear all travel plans?')) {
+      travelPlans = [];
+      savePlans();
+      renderPlans();
+      resetPlanForm();
+    }
+  });
+
+  // Sorting expenses by clicking headers
+  let currentExpenseSort = {field: 'desc', ascending: true};
+  document.querySelectorAll('#expense-table th[data-sort]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const field = th.getAttribute('data-sort');
+      let asc = true;
+      if (currentExpenseSort.field === field) {
+        asc = !currentExpenseSort.ascending;
+      }
+      currentExpenseSort = {field, ascending: asc};
+      renderExpenses(field, asc);
+      // update arrow directions
+      document.querySelectorAll('#expense-table th[data-sort]').forEach(header => {
+        header.textContent = header.textContent.replace(/[\u25B2\u25BC]/g,'').trim();
+      });
+      th.textContent = th.textContent.trim() + (asc ? ' \u25B2' : ' \u25BC'); // up/down triangle
+    });
+  });
+
+  // Initial renders
+  renderExpenses();
+  renderPlans();
+
+  // CSV helpers
+  function arrayToCSV(arr, headers){
+    const csv = [headers.join(",")];
+    arr.forEach(obj => {
+      csv.push(headers.map(h => {
+        let val = obj[h];
+        if (val === undefined || val === null) return "";
+        val = val.toString().replace(/"/g, '""'); // escape quotes
+        if (val.includes(",") || val.includes("\n")) val = `"${val}"`;
+        return val;
+      }).join(","));
+    });
+    return csv.join("\n");
+  }
+  function downloadCSV(data, filename){
+    const blob = new Blob([data], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+})();
+</script>
+</body>
+</html>
+    <!-- if (!expenseDesc || !expenseAmount || isNaN(expenseAmount) || expenseAmount <= 0) {
+      alert('Please enter valid expense details.');
+      return;
+    }
+
+    const newExpense = {
+      id: Date.now(),
+      desc: expenseDesc,
+      amount: parseFloat(expenseAmount),
+      category: expenseCategory,
+      date: new Date().toISOString(),
+    };
+
+    setExpenses([...expenses, newExpense]);
+    localStorage.setItem('expenses', JSON.stringify([...expenses, newExpense]));
+
+    setExpenseDesc('');
+    setExpenseAmount('');
+    setExpenseCategory('Travel');
+  }; -->
